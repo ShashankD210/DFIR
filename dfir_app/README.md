@@ -17,6 +17,9 @@ inbound port.
 Both environments run the same toolkit actions. The local connector executes
 the repository toolkit on the local machine; the authenticated cloud endpoint
 `POST /api/cloud/execute` executes the same toolkit inside the cloud container.
+Supported actions are `check-tools`, `triage`, `hash`, `memory`, `yara`,
+`capture`, `logs`, `rootkit`, and `report`. `install-all` is intentionally not
+remote-enabled because it changes the host package environment.
 
 ## Start the cloud service locally
 
@@ -24,12 +27,14 @@ From the repository root:
 
 ```bash
 export DFIR_ADMIN_TOKEN="replace-with-a-long-random-secret"
-docker compose up --build
+docker compose -f dfir_app/docker-compose.yml up --build
 ```
 
 The API is then available at `http://127.0.0.1:8080`. For a cloud host, build
-and deploy from the repository root with `docker build -f dfir_app/Dockerfile .`, set `DFIR_ADMIN_TOKEN` as a secret, and
-mount persistent storage at `/app/data` for the SQLite database. Put the
+and deploy from the repository root with
+`docker build -f dfir_app/Dockerfile .`, set `DFIR_ADMIN_TOKEN` as a secret,
+and mount persistent storage at `/app/data` for the SQLite database and toolkit
+output. Put the
 service behind HTTPS before connecting an agent outside the local network.
 
 ## Run locally
@@ -40,17 +45,19 @@ The recommended local layout is:
 dfir_app/
 ├── server.py              # cloud control plane
 ├── local_connector.py     # local outbound connector
-├── ../dfir_toolkit.py     # shared DFIR execution toolkit
+├── dfir_toolkit.py        # shared DFIR execution toolkit
 ├── data/                  # local runtime data and SQLite files
 ├── output/                # hashes and collected evidence
 └── logs/                  # local connector logs
 ```
 
 The connector integrates directly with the repository's
-`../dfir_toolkit.py`. Set `DFIR_TOOLKIT_PATH` when the toolkit is stored
-elsewhere.
+`dfir_toolkit.py`. It is linked to the repository's canonical toolkit so the
+cloud and local applications run the same file. Set `DFIR_TOOLKIT_PATH` only
+when the toolkit is stored elsewhere.
 
 ```bash
+cd dfir_app
 export DFIR_ADMIN_TOKEN="replace-with-a-long-random-secret"
 python3 server.py
 ```
@@ -80,6 +87,7 @@ curl -sS -X POST "$DFIR_CLOUD_URL/api/agents/$DFIR_AGENT_ID/commands" \
   -H "Authorization: Bearer $DFIR_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"action":"check-tools"}'
+```
 
 Run the same toolkit directly in the cloud container:
 
@@ -89,9 +97,9 @@ curl -sS -X POST "$DFIR_CLOUD_URL/api/cloud/execute" \
   -H 'Content-Type: application/json' \
   -d '{"action":"check-tools"}'
 ```
-```
 
 For a cloud deployment, set `DFIR_ADMIN_TOKEN` as a platform secret, mount a
 persistent volume for `DFIR_DATABASE`, and put the service behind HTTPS. Do
-not commit admin or agent tokens. The current version intentionally supports
-only `check-tools`, `hash`, and `logs`; expand the allowlist carefully.
+not commit admin or agent tokens. Privileged actions such as triage, capture,
+and rootkit checks require the same operating-system permissions as the
+underlying toolkit command.

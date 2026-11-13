@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from toolkit_runner import execute
+from toolkit_runner import ALLOWED_ACTIONS, execute
 
 
 HOST = os.getenv("HOST", "0.0.0.0")
@@ -188,7 +188,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(HTTPStatus.UNAUTHORIZED, {"error": "admin authorization required"})
                 return
             action = str(payload.get("action", "")).strip()
-            if action not in {"check-tools", "hash", "logs"}:
+            if action not in ALLOWED_ACTIONS:
                 self.send_json(HTTPStatus.BAD_REQUEST, {"error": "unsupported action"})
                 return
             connection = db()

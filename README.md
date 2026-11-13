@@ -83,6 +83,27 @@ sudo ./dfir_toolkit.py rootkit --output /tmp/rootkit.txt
 ./dfir_toolkit.py report /tmp/dfir/triage_* --output report.txt
 ```
 
+## Cloud and Local Application
+
+The integrated cloud/local application is in [dfir_app](./dfir_app/). It runs
+the same [dfir_toolkit.py](./dfir_toolkit.py) locally through the outbound
+connector and inside the cloud container through an authenticated API. The
+application copy at [dfir_app/dfir_toolkit.py](./dfir_app/dfir_toolkit.py)
+resolves to that same file. See
+[dfir_app/README.md](./dfir_app/README.md) for local Compose and cloud
+deployment instructions.
+
+To start the cloud service locally from the repository root:
+
+```bash
+export DFIR_ADMIN_TOKEN="replace-with-a-long-random-secret"
+docker compose -f dfir_app/docker-compose.yml up --build
+```
+
+The cloud API supports `check-tools`, `triage`, `hash`, `memory`, `yara`,
+`capture`, `logs`, `rootkit`, and `report`. The `install-all` command remains a
+local-only operation because it changes the host package environment.
+
 ## Tool Categories
 
 | Category | Tools |

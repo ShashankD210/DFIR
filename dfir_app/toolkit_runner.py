@@ -4,16 +4,51 @@
 from __future__ import annotations
 
 import os
+import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 
 
 TOOLKIT = Path(
-    os.getenv("DFIR_TOOLKIT_PATH", str(Path(__file__).resolve().parents[1] / "dfir_toolkit.py"))
+    os.getenv("DFIR_TOOLKIT_PATH", str(Path(__file__).resolve().with_name("dfir_toolkit.py")))
 ).expanduser().resolve()
 OUTPUT_DIR = Path(os.getenv("DFIR_LOCAL_OUTPUT", os.getenv("DFIR_CLOUD_OUTPUT", "./output")))
-ALLOWED_ACTIONS = {"check-tools", "hash", "logs"}
+ALLOWED_ACTIONS = {
+    "check-tools", "triage", "hash", "memory", "yara",
+    "capture", "logs", "rootkit", "report",
+}
+
+
+def _arguments(argument: str) -> list[str]:
+    """Accept either a shell-like argument string or a JSON string list."""
+    if not argument.strip():
+        return []
+    try:
+        parsed = json.loads(argument)
+    except json.JSONDecodeError:
+        return shlex.split(argument)
+    if not isinstance(parsed, list) or not all(isinstance(item, str) for item in parsed):
+        raise ValueError("argument must be a shell argument string or JSON string list")
+    return parsed
+
+
+def _default_output(action: str, arguments: list[str]) -> list[str]:
+    """Keep default toolkit outputs inside the application data directory."""
+    if "--output" in arguments:
+        return arguments
+    defaults = {
+        "triage": ["--output", str(OUTPUT_DIR / "triage")],
+        "hash": ["--output", str(OUTPUT_DIR / "hashes.json")],
+        "logs": ["--output", str(OUTPUT_DIR / "logs")],
+        "rootkit": ["--output", str(OUTPUT_DIR / "rootkit_check.txt")],
+        "memory": ["--output", str(OUTPUT_DIR / "memory")],
+        "yara": ["--output", str(OUTPUT_DIR / "yara_results.txt")],
+        "capture": ["--output", str(OUTPUT_DIR / "capture.pcap")],
+        "report": ["--output", str(OUTPUT_DIR / "report.txt")],
+    }
+    return arguments + defaults.get(action, [])
 
 
 def execute(action: str, argument: str = "") -> tuple[str, str]:
@@ -24,15 +59,11 @@ def execute(action: str, argument: str = "") -> tuple[str, str]:
         return "failed", f"unsupported action: {action}"
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    if action == "check-tools":
-        command = [sys.executable, str(TOOLKIT), "check-tools"]
-    elif action == "hash":
-        target = Path(argument).expanduser().resolve()
-        if not target.exists():
-            return "failed", f"path does not exist: {target}"
-        command = [sys.executable, str(TOOLKIT), "hash", str(target), "--output", str(OUTPUT_DIR / "hashes.json")]
-    else:
-        command = [sys.executable, str(TOOLKIT), "logs", "--output", str(OUTPUT_DIR / "logs")]
+    try:
+        arguments = _default_output(action, _arguments(argument))
+    except ValueError as error:
+        return "failed", str(error)
+    command = [sys.executable, str(TOOLKIT), action, *arguments]
 
     try:
         completed = subprocess.run(command, capture_output=True, text=True, timeout=300)
