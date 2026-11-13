@@ -5,6 +5,7 @@ This folder contains both halves of the same application:
 - `server.py` is the cloud control plane and can also run locally.
 - `local_connector.py` runs on an investigator's machine and connects outbound
   to the server.
+- `toolkit_runner.py` is the shared execution wrapper for `dfir_toolkit.py`.
 - `Dockerfile` packages the cloud service for any container host.
 - `docker-compose.yml` runs the cloud service locally using the same image
   definition used for deployment.
@@ -13,9 +14,13 @@ This folder contains both halves of the same application:
 The connector polls over HTTPS, so the local machine does not need an exposed
 inbound port.
 
+Both environments run the same toolkit actions. The local connector executes
+the repository toolkit on the local machine; the authenticated cloud endpoint
+`POST /api/cloud/execute` executes the same toolkit inside the cloud container.
+
 ## Start the cloud service locally
 
-From this folder:
+From the repository root:
 
 ```bash
 export DFIR_ADMIN_TOKEN="replace-with-a-long-random-secret"
@@ -23,7 +28,7 @@ docker compose up --build
 ```
 
 The API is then available at `http://127.0.0.1:8080`. For a cloud host, build
-and deploy this folder as a container, set `DFIR_ADMIN_TOKEN` as a secret, and
+and deploy from the repository root with `docker build -f dfir_app/Dockerfile .`, set `DFIR_ADMIN_TOKEN` as a secret, and
 mount persistent storage at `/app/data` for the SQLite database. Put the
 service behind HTTPS before connecting an agent outside the local network.
 
@@ -75,6 +80,15 @@ curl -sS -X POST "$DFIR_CLOUD_URL/api/agents/$DFIR_AGENT_ID/commands" \
   -H "Authorization: Bearer $DFIR_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"action":"check-tools"}'
+
+Run the same toolkit directly in the cloud container:
+
+```bash
+curl -sS -X POST "$DFIR_CLOUD_URL/api/cloud/execute" \
+  -H "Authorization: Bearer $DFIR_ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"check-tools"}'
+```
 ```
 
 For a cloud deployment, set `DFIR_ADMIN_TOKEN` as a platform secret, mount a

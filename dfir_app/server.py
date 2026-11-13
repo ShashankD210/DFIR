@@ -21,6 +21,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from toolkit_runner import execute
+
 
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
@@ -173,6 +175,11 @@ class Handler(BaseHTTPRequestHandler):
             finally:
                 connection.close()
             self.send_json(HTTPStatus.CREATED, {"id": agent_id, "name": name, "token": token})
+            return
+
+        if path == "/api/cloud/execute" and self.authorized_admin():
+            status, output = execute(str(payload.get("action", "")), str(payload.get("argument", "")))
+            self.send_json(HTTPStatus.OK, {"status": status, "output": output})
             return
 
         parts = path.strip("/").split("/")

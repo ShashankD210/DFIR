@@ -1,6 +1,8 @@
 services:
   dfir-cloud:
-    build: .
+    build:
+      context: ..
+      dockerfile: dfir_app/Dockerfile
     ports:
       - "8080:8080"
     environment:
