@@ -1,0 +1,15 @@
+services:
+  dfir-cloud:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DFIR_ADMIN_TOKEN: ${DFIR_ADMIN_TOKEN:?Set DFIR_ADMIN_TOKEN before starting}
+      DFIR_DATABASE: /app/data/dfir-cloud.sqlite3
+    volumes:
+      - dfir-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  dfir-data:
